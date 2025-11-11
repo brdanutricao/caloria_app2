@@ -82,9 +82,8 @@ def _auth_uid_or_none():
     return None
 
 def _save_onboarding_and_go_home():
-    # 1) exige sessão real do Supabase (RLS)
     auid = _auth_uid_or_none()
-    if not auid or str(auid) != str(uid):
+    if not auid:
         st.warning("Sua sessão expirou. Faça login para concluir.")
         st.session_state.ob_step = 1
         st.session_state.auth_mode = "login"
@@ -820,3 +819,4 @@ def render_onboarding(uid: str, profile: dict):
 
                 except Exception as e:
                     st.error(f"Erro ao salvar: {e}")
+
