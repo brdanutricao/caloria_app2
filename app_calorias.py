@@ -1053,46 +1053,46 @@ def render_app_calorias():
 def render_auth_gate():
     st.title("🔐 Acesse sua conta")
 
-    # Recupera email salvo da sessão (se existir)
-    default_email = st.session_state.get("saved_email", "")
-    email = st.text_input("E-mail", value=default_email)
-    password = st.text_input("Senha", type="password")
-    remember = st.checkbox("Lembrar meu login", value=True)
+    # botão de voltar fecha o modo login
+    if st.button("← Voltar", type="secondary"):
+        st.session_state["show_login"] = False
+        st.rerun()
 
-    if st.button("Entrar"):
+    default_email = st.session_state.get("saved_email", "")
+    email = st.text_input("E-mail", value=default_email, key="login_email")
+    password = st.text_input("Senha", type="password", key="login_password")
+    remember = st.checkbox("Lembrar meu login", value=True, key="login_remember")
+
+    if st.button("Entrar", key="btn_do_login"):
         try:
             from helpers import supabase
-            res = supabase.auth.sign_in_with_password(
-                {"email": email, "password": password}
-            )
-
-            # compatibilidade: res pode ser objeto ou dict
-            user = getattr(res, "user", None) or (
-                res.get("user") if isinstance(res, dict) else None
-            )
+            res = supabase.auth.sign_in_with_password({"email": email, "password": password})
+            user = getattr(res, "user", None) or (res.get("user") if isinstance(res, dict) else None)
 
             if user:
                 st.session_state["sb_session"] = res
                 st.session_state["user_id"] = user.id
                 st.session_state["user_email"] = user.email
 
-                # salva perfil no banco (se ainda não existir)
+                # opcional: criar/atualizar profile
                 try:
                     from helpers import db_upsert_profile
                     db_upsert_profile(user.id, user.email)
                 except Exception:
                     pass
 
-                # se o usuário marcou "lembrar"
                 if remember:
                     st.session_state["saved_email"] = email
 
+                # ✅ fecha o modo login e segue
+                st.session_state["show_login"] = False
                 st.success("Login realizado com sucesso!")
                 st.rerun()
             else:
                 st.error("Falha no login. Verifique suas credenciais.")
         except Exception as e:
             st.error(f"Erro: {e}")
+
 
 def render_logout():
     if st.button("Sair", type="secondary", use_container_width=True):
@@ -1112,25 +1112,34 @@ def render_logout():
 def render_router():
     session = st.session_state.get("sb_session")
 
-    # 🧭 Se não houver sessão/logado → mostra opção de login OU onboarding
     if not session:
-        # Se o usuário já clicou "Começar agora" (onboarding iniciado)
+        # 🔒 Se o usuário pediu login, mantenha a tela aberta
+        if st.session_state.get("show_login"):
+            render_auth_gate()
+            st.stop()
+
+        # Se o onboarding foi iniciado, continue nele
         if st.session_state.get("onboarding_started"):
             render_onboarding(uid=None, profile={})
-            return  # <-- impede o resto da função de rodar
-        else:
-            st.markdown("### 🍽️ Bem-vindo ao calorIA")
-            st.write("Contar calorias ficou fácil com o poder da IA.")
-            col1, col2 = st.columns(2)
-            with col1:
-                if st.button("🚀 Começar agora (criar conta)", use_container_width=True):
-                    st.session_state.onboarding_started = True
-                    st.session_state.ob_step = 0
-                    st.rerun()
-            with col2:
-                if st.button("Já tenho conta → Login", use_container_width=True):
-                    render_auth_gate()
             return
+
+        # Tela inicial
+        st.markdown("### 🍽️ Bem-vindo ao calorIA")
+        st.write("Contar calorias ficou fácil com o poder da IA.")
+
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("🚀 Começar agora (criar conta)", use_container_width=True):
+                st.session_state.onboarding_started = True
+                st.session_state.ob_step = 0
+                st.rerun()
+
+        with col2:
+            if st.button("Já tenho conta → Login", use_container_width=True, key="btn_login"):
+                st.session_state["show_login"] = True
+                st.rerun()
+        return
+
 
     # ✅ Só executa o restante se houver sessão (usuário logado)
     try:
@@ -1248,6 +1257,7 @@ if session_cur:
     render_logout()
 else:
     st.sidebar.info("Não há usuário logado.")
+
 
 
 
