@@ -12,6 +12,13 @@ import streamlit as st
 import pandas as pd
 from pathlib import Path
 
+st.set_page_config(
+    page_title="calorIA - Nutrição Inteligente",
+    page_icon="🍽️",
+    layout="centered",
+    initial_sidebar_state="expanded"
+)
+
 from helpers import (
     supabase,
     get_points,
@@ -33,6 +40,7 @@ from helpers import (
 )
 
 apply_theme()
+splash_once()
 
 # Reportlab (PDF export)
 try:
@@ -1051,47 +1059,72 @@ def render_app_calorias():
 
 # --- Roteador (ÚNICO) ---
 def render_auth_gate():
-    st.title("🔐 Acesse sua conta")
+    st.markdown(
+        """
+        <div style='text-align: center; padding: 1rem 0;'>
+            <h1 style='color: #2BAEAE;'>🔐 Acesse sua conta</h1>
+            <p style='color: #6C757D;'>Entre com suas credenciais para continuar</p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
-    # botão de voltar fecha o modo login
-    if st.button("← Voltar", type="secondary"):
-        st.session_state["show_login"] = False
-        st.rerun()
+    col_spacer1, col_form, col_spacer2 = st.columns([1, 2, 1])
+    with col_form:
+        if st.button("← Voltar", type="secondary", use_container_width=True):
+            st.session_state["show_login"] = False
+            st.rerun()
 
-    default_email = st.session_state.get("saved_email", "")
-    email = st.text_input("E-mail", value=default_email, key="login_email")
-    password = st.text_input("Senha", type="password", key="login_password")
-    remember = st.checkbox("Lembrar meu login", value=True, key="login_remember")
+        st.write("")
+        
+        default_email = st.session_state.get("saved_email", "")
+        email = st.text_input("E-mail", value=default_email, key="login_email", placeholder="seu@email.com")
+        password = st.text_input("Senha", type="password", key="login_password", placeholder="Sua senha")
+        remember = st.checkbox("Lembrar meu login", value=True, key="login_remember")
 
-    if st.button("Entrar", key="btn_do_login"):
-        try:
-            from helpers import supabase
-            res = supabase.auth.sign_in_with_password({"email": email, "password": password})
-            user = getattr(res, "user", None) or (res.get("user") if isinstance(res, dict) else None)
+        st.write("")
 
-            if user:
-                st.session_state["sb_session"] = res
-                st.session_state["user_id"] = user.id
-                st.session_state["user_email"] = user.email
-
-                # opcional: criar/atualizar profile
-                try:
-                    from helpers import db_upsert_profile
-                    db_upsert_profile(user.id, user.email)
-                except Exception:
-                    pass
-
-                if remember:
-                    st.session_state["saved_email"] = email
-
-                # ✅ fecha o modo login e segue
-                st.session_state["show_login"] = False
-                st.success("Login realizado com sucesso!")
-                st.rerun()
+        if st.button("🚀 Entrar", key="btn_do_login", use_container_width=True, type="primary"):
+            if not email or not password:
+                st.error("Por favor, preencha e-mail e senha.")
             else:
-                st.error("Falha no login. Verifique suas credenciais.")
-        except Exception as e:
-            st.error(f"Erro: {e}")
+                try:
+                    from helpers import supabase
+                    res = supabase.auth.sign_in_with_password({"email": email, "password": password})
+                    user = getattr(res, "user", None) or (res.get("user") if isinstance(res, dict) else None)
+
+                    if user:
+                        st.session_state["sb_session"] = res
+                        st.session_state["user_id"] = user.id
+                        st.session_state["user_email"] = user.email
+
+                        try:
+                            from helpers import db_upsert_profile
+                            db_upsert_profile(user.id, user.email)
+                        except Exception:
+                            pass
+
+                        if remember:
+                            st.session_state["saved_email"] = email
+
+                        st.session_state["show_login"] = False
+                        st.success("✅ Login realizado com sucesso!")
+                        st.rerun()
+                    else:
+                        st.error("Falha no login. Verifique suas credenciais.")
+                except Exception as e:
+                    st.error(f"Erro ao fazer login: {e}")
+        
+        st.markdown(
+            """
+            <div style='text-align: center; margin-top: 1.5rem; padding: 1rem; background-color: #F8F9FA; border-radius: 8px;'>
+                <p style='color: #6C757D; font-size: 0.9rem; margin: 0;'>
+                    Não tem uma conta? <a href='#' style='color: #FF7A3D; text-decoration: none; font-weight: 600;'>Criar conta grátis</a>
+                </p>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
 
 def render_logout():
@@ -1123,21 +1156,57 @@ def render_router():
             render_onboarding(uid=None, profile={})
             return
 
-        # Tela inicial
-        st.markdown("### 🍽️ Bem-vindo ao calorIA")
-        st.write("Contar calorias ficou fácil com o poder da IA.")
+        # Tela inicial com design melhorado
+        st.markdown(
+            """
+            <div style='text-align: center; padding: 2rem 0;'>
+                <h1 style='color: #2BAEAE; font-size: 2.5rem; margin-bottom: 0.5rem;'>🍽️ Bem-vindo ao calorIA</h1>
+                <p style='font-size: 1.2rem; color: #6C757D; margin-bottom: 2rem;'>
+                    Contar calorias ficou fácil com o poder da IA
+                </p>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("🚀 Começar agora (criar conta)", use_container_width=True):
+        col_spacer1, col_center, col_spacer2 = st.columns([1, 2, 1])
+        with col_center:
+            if st.button("🚀 Começar agora (criar conta)", use_container_width=True, type="primary"):
                 st.session_state.onboarding_started = True
                 st.session_state.ob_step = 0
                 st.rerun()
 
-        with col2:
-            if st.button("Já tenho conta → Login", use_container_width=True, key="btn_login"):
+            st.write("")
+            
+            if st.button("🔑 Já tenho conta → Login", use_container_width=True, key="btn_login"):
                 st.session_state["show_login"] = True
                 st.rerun()
+        
+        st.markdown(
+            """
+            <div style='text-align: center; margin-top: 3rem; padding: 2rem; background-color: #F8F9FA; border-radius: 10px;'>
+                <h3 style='color: #2BAEAE;'>✨ Por que escolher o calorIA?</h3>
+                <div style='display: flex; flex-wrap: wrap; justify-content: center; gap: 2rem; margin-top: 1.5rem;'>
+                    <div style='flex: 1; min-width: 200px; max-width: 300px;'>
+                        <div style='font-size: 2rem; margin-bottom: 0.5rem;'>🤖</div>
+                        <strong>IA Inteligente</strong>
+                        <p style='color: #6C757D; font-size: 0.9rem;'>Reconhecimento automático de alimentos por foto</p>
+                    </div>
+                    <div style='flex: 1; min-width: 200px; max-width: 300px;'>
+                        <div style='font-size: 2rem; margin-bottom: 0.5rem;'>📊</div>
+                        <strong>Acompanhamento Completo</strong>
+                        <p style='color: #6C757D; font-size: 0.9rem;'>Gráficos de evolução e metas personalizadas</p>
+                    </div>
+                    <div style='flex: 1; min-width: 200px; max-width: 300px;'>
+                        <div style='font-size: 2rem; margin-bottom: 0.5rem;'>🍱</div>
+                        <strong>Receitas Exclusivas</strong>
+                        <p style='color: #6C757D; font-size: 0.9rem;'>Cardápios balanceados e deliciosos</p>
+                    </div>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
         return
 
 

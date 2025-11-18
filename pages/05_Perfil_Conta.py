@@ -7,6 +7,14 @@
 # -------------------------------------------------------------
 import datetime as dt
 import streamlit as st
+from datetime import date
+
+st.set_page_config(
+    page_title="Perfil / Conta",
+    page_icon="👤",
+    layout="centered",
+    initial_sidebar_state="expanded"
+)
 
 from helpers import (
     db_get_profile, db_upsert_profile,
@@ -15,9 +23,7 @@ from helpers import (
     apply_theme, get_or_create_subscription,
 )
 
-# aplicar tema e config
 apply_theme()
-st.set_page_config(page_title="Perfil / Conta", page_icon="👤", layout="centered")
 
 # -------- Sessão --------
 uid   = st.session_state.get("user_id")

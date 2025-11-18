@@ -41,7 +41,7 @@ import time
 def splash_once():
     """
     Exibe a tela de splash com logo e título customizado.
-    Mostra apenas 1x por sessão.
+    Mostra apenas 1x por sessão com animação.
     """
     if st.session_state.get("_splash_done"):
         return
@@ -49,61 +49,102 @@ def splash_once():
     ph = st.empty()
     with ph.container():
         st.markdown(
-            f"""
+            """
             <style>
-            .caloria-splash {{
-              position: fixed; inset: 0; z-index: 9999;
-              background: #FFFFFF; /* fundo branco */
-              display: flex; flex-direction: column;
-              align-items: center; justify-content: center;
-            }}
-            .caloria-splash-title {{
-              margin-top: 12px;
-              font-size: 1.2rem;
+            @keyframes fadeIn {
+              from { opacity: 0; transform: translateY(20px); }
+              to { opacity: 1; transform: translateY(0); }
+            }
+            
+            @keyframes pulse {
+              0%, 100% { transform: scale(1); }
+              50% { transform: scale(1.05); }
+            }
+            
+            .caloria-splash {
+              position: fixed; 
+              inset: 0; 
+              z-index: 9999;
+              background: linear-gradient(135deg, #FFFFFF 0%, #F8F9FA 100%);
+              display: flex; 
+              flex-direction: column;
+              align-items: center; 
+              justify-content: center;
+              animation: fadeIn 0.5s ease-out;
+            }
+            
+            .caloria-splash-logo {
+              animation: pulse 2s ease-in-out infinite;
+              margin-bottom: 1.5rem;
+            }
+            
+            .caloria-splash-title {
+              font-size: 2.5rem;
               font-weight: 700;
-              color: #2BAEAE; /* Azul esverdiado */
-            }}
-            .caloria-splash-sub {{
-              margin-top: 6px;
-              font-size: 0.9rem;
-              color: #FF7A3D; /* Laranja destaque */
-              opacity: 0.85;
-            }}
+              color: #2BAEAE;
+              margin-bottom: 0.5rem;
+              animation: fadeIn 0.8s ease-out 0.2s both;
+              text-align: center;
+            }
+            
+            .caloria-splash-sub {
+              font-size: 1.1rem;
+              color: #FF7A3D;
+              font-weight: 500;
+              animation: fadeIn 1s ease-out 0.4s both;
+              text-align: center;
+            }
+            
+            .caloria-splash-loader {
+              margin-top: 2rem;
+              width: 50px;
+              height: 50px;
+              border: 4px solid #F8F9FA;
+              border-top: 4px solid #2BAEAE;
+              border-radius: 50%;
+              animation: spin 1s linear infinite;
+            }
+            
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
             </style>
             <div class="caloria-splash">
-              <div id="caloria-splash"></div>
-              <div class="caloria-splash-title">CalorIA</div>
+              <div class="caloria-splash-logo">
+                <svg width="120" height="120" viewBox="0 0 120 120" fill="none">
+                  <circle cx="60" cy="60" r="55" fill="#2BAEAE" opacity="0.1"/>
+                  <circle cx="60" cy="60" r="45" fill="#2BAEAE" opacity="0.2"/>
+                  <text x="60" y="75" font-size="60" text-anchor="middle" fill="#2BAEAE">🍽️</text>
+                </svg>
+              </div>
+              <div class="caloria-splash-title">calorIA</div>
               <div class="caloria-splash-sub">Nutrição inteligente com IA</div>
+              <div class="caloria-splash-loader"></div>
             </div>
             """,
             unsafe_allow_html=True
         )
 
-        try:
-            st.image(str(LOGO_PATH), width=160)
-        except:
-            st.write("Logo não encontrada")
-
-    time.sleep(1.2)  # duração do splash
+    time.sleep(2.0)
     ph.empty()
     st.session_state["_splash_done"] = True
 
 def apply_theme():
     st.markdown("""
     <style>
-      /* Sidebar teal (sem forçar cor de TODO o texto) */
+      /* ===== SIDEBAR ===== */
       [data-testid="stSidebar"] {
         background-color: #2BAEAE !important;
       }
                 
-      /* Apenas os títulos com classe .sb-title ficam brancos */
       [data-testid="stSidebar"] .sb-title {
         color: #FFFFFF !important;
         font-weight: 700 !important;
         font-size: 1.1rem;
       }
 
-      /* Títulos (mantém padrão do tema pro resto) */
+      /* ===== TÍTULOS ===== */
       h1, h2, h3,
       [data-testid="stMarkdownContainer"] h1,
       [data-testid="stMarkdownContainer"] h2,
@@ -112,35 +153,138 @@ def apply_theme():
         font-weight: 700 !important;
       }
 
-      /* Botões (o tema já cuida do laranja; aqui só refinamos) */
+      /* ===== BOTÕES ===== */
       .stButton > button {
-        border-radius: 8px !important;
+        border-radius: 10px !important;
         font-weight: 600 !important;
+        padding: 0.5rem 1rem !important;
+        transition: all 0.3s ease !important;
+        border: none !important;
       }
+      
+      .stButton > button:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+      }
+      
       .stButton > button:disabled {
         background-color: #E0E0E0 !important;
         color: #6C757D !important;
         cursor: not-allowed !important;
+        transform: none !important;
       }
 
-      /* Selects (fallback se o tema não pegar em algum lugar específico) */
+      /* ===== INPUTS E SELECTS ===== */
+      .stTextInput > div > div > input,
+      .stNumberInput > div > div > input,
+      .stDateInput > div > div > input,
+      .stTimeInput > div > div > input {
+        border-radius: 8px !important;
+        border: 2px solid #E0E0E0 !important;
+        padding: 0.5rem !important;
+        transition: border-color 0.3s ease !important;
+      }
+      
+      .stTextInput > div > div > input:focus,
+      .stNumberInput > div > div > input:focus,
+      .stDateInput > div > div > input:focus,
+      .stTimeInput > div > div > input:focus {
+        border-color: #2BAEAE !important;
+        box-shadow: 0 0 0 1px #2BAEAE !important;
+      }
+
       div[data-baseweb="select"] > div {
         background-color: #FFFFFF !important;
         color: #212529 !important;
-        border: 1px solid #ced4da !important;
-        border-radius: 6px !important;
+        border: 2px solid #E0E0E0 !important;
+        border-radius: 8px !important;
+        transition: border-color 0.3s ease !important;
+      }
+      
+      div[data-baseweb="select"] > div:focus-within {
+        border-color: #2BAEAE !important;
       }
 
-      /* Toggle (fallback extra) */
-      div[role="switch"] { background-color: #E0E0E0 !important; }
-      div[role="switch"][aria-checked="true"] { background-color: #FF7A3D !important; }
+      /* ===== TOGGLE ===== */
+      div[role="switch"] { 
+        background-color: #E0E0E0 !important; 
+        transition: background-color 0.3s ease !important;
+      }
+      div[role="switch"][aria-checked="true"] { 
+        background-color: #FF7A3D !important; 
+      }
 
-      /* Avisos/caixas (ex.: st.info/success) → texto sempre legível */
+      /* ===== ALERTAS E MENSAGENS ===== */
       div[role="alert"] * { color: #212529 !important; }
+      
+      div[data-testid="stSuccess"],
+      div[data-testid="stInfo"],
+      div[data-testid="stWarning"],
+      div[data-testid="stError"] {
+        border-radius: 8px !important;
+        padding: 1rem !important;
+      }
 
-      /* Esconder barra preta do topo (dev) */
+      /* ===== CONTAINERS E CARDS ===== */
+      div[data-testid="stVerticalBlock"] > div[style*="border"] {
+        border-radius: 12px !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08) !important;
+      }
+
+      /* ===== ESCONDER ELEMENTOS DESNECESSÁRIOS ===== */
       header { display: none; }
       [data-testid="stStatusWidget"] { display: none; }
+      #MainMenu { visibility: hidden; }
+      footer { visibility: hidden; }
+
+      /* ===== MOBILE RESPONSIVENESS ===== */
+      @media (max-width: 768px) {
+        h1 { font-size: 1.8rem !important; }
+        h2 { font-size: 1.5rem !important; }
+        h3 { font-size: 1.2rem !important; }
+        
+        .stButton > button {
+          padding: 0.6rem 1rem !important;
+          font-size: 0.9rem !important;
+        }
+        
+        [data-testid="stSidebar"] {
+          width: 100% !important;
+        }
+        
+        div[style*="flex"] {
+          flex-direction: column !important;
+        }
+        
+        div[style*="gap"] {
+          gap: 1rem !important;
+        }
+      }
+
+      /* ===== ANIMAÇÕES SUAVES ===== */
+      * {
+        transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease !important;
+      }
+
+      /* ===== SCROLLBAR CUSTOMIZADA ===== */
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      
+      ::-webkit-scrollbar-track {
+        background: #F8F9FA;
+        border-radius: 10px;
+      }
+      
+      ::-webkit-scrollbar-thumb {
+        background: #2BAEAE;
+        border-radius: 10px;
+      }
+      
+      ::-webkit-scrollbar-thumb:hover {
+        background: #229999;
+      }
     </style>
     """, unsafe_allow_html=True)
 

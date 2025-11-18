@@ -4,6 +4,13 @@ import pandas as pd
 from datetime import datetime, date
 from pathlib import Path
 
+st.set_page_config(
+    page_title="Check-in Semanal",
+    page_icon="📊",
+    layout="centered",
+    initial_sidebar_state="expanded"
+)
+
 from helpers import (
     apply_theme, supabase,
     storage_public_url, local_img_path,
@@ -11,7 +18,6 @@ from helpers import (
 )
 
 apply_theme()
-st.set_page_config(page_title="Check-in Semanal", page_icon="📊", layout="centered")
 
 uid = st.session_state.get("user_id")
 if not uid:

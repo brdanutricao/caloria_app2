@@ -8,6 +8,13 @@
 import streamlit as st
 from typing import List, Dict, Any, Optional
 
+st.set_page_config(
+    page_title="Receitas",
+    page_icon="🍽️",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
 from helpers import (
     get_or_create_subscription, get_rda_value,
     _show_image, storage_public_url, apply_theme,
@@ -19,11 +26,9 @@ apply_theme()
 # -------------------------------------------------------------
 # Se NÃO estiver logado, volta pra Home
 if not st.session_state.get("sb_session"):
-    st.switch_page("app_calorias.py")  # ajuste se o nome for diferente
+    st.switch_page("app_calorias.py")
 
 # -------------------------------------------------------------
-# Config da página cedo
-st.set_page_config(page_title="Receitas", page_icon="🍽️", layout="wide")
 st.title("🍽️ Receitas")
 
 # -------- Sessão / Plano --------
