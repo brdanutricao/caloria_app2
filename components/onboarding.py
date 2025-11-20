@@ -81,58 +81,6 @@ def _auth_uid_or_none():
         pass
     return None
 
-def _save_onboarding_and_go_home():
-    auid = _auth_uid_or_none()
-    if not auid:
-        st.warning("Sua sessão expirou. Faça login para concluir.")
-        st.session_state.ob_step = 1
-        st.session_state.auth_mode = "login"
-        st.rerun()
-
-    try:
-        goal_to_save = _normalize_goal(goal)
-
-        # 2) update do perfil (RLS: id = auth.uid())
-        supabase.table("profiles").update(
-            {
-                "full_name": full_name or None,
-                "dob": str(dob) if dob else None,
-                "sex": sex,
-                "height_cm": float(height_cm) if height_cm else None,
-                "weight_kg": float(weight_kg) if weight_kg else None,
-                "goal": goal_to_save,
-                "target_weight_kg": float(target_weight_kg) if target_weight_kg else None,
-                "obstacles": (st.session_state.get("ob_obs") or "").strip() or None,
-                "onboarding_done": True,
-            }
-        ).eq("id", uid).execute()
-
-        # 3) weight_logs: insere HOJE só se ainda não existir (idempotente)
-        today_str = str(date.today())
-        exists = supabase.table("weight_logs") \
-            .select("id") \
-            .eq("user_id", uid) \
-            .eq("ref_date", today_str) \
-            .limit(1) \
-            .execute()
-        if not getattr(exists, "data", exists):
-            supabase.table("weight_logs").insert({
-                "user_id": uid,           # RLS: with check (user_id = auth.uid())
-                "ref_date": today_str,
-                "weight_kg": float(weight_kg),
-            }).execute()
-
-        # 4) terminou → ir para o painel
-        st.success("Onboarding concluído! Redirecionando…")
-        st.session_state.onboarding_done = True
-        # se usa multipage:
-        # st.switch_page("pages/01_Diario_Alimentar.py")
-        # ou roteador simples:
-        st.session_state.route = "home"
-        st.rerun()
-
-    except Exception as e:
-        st.error(f"Erro ao salvar: {e}")
 
 # === Onboarding (wizard) ===
 
@@ -140,11 +88,21 @@ def render_onboarding(uid: str, profile: dict):
     import pandas as pd
     from helpers import supabase  # import local aqui, visível em toda a função
 
-    st.markdown("### 👋 Boas-vindas ao calorIA")
-
     if "ob_step" not in st.session_state:
         st.session_state.ob_step = 0  # começa no step 0
     step = st.session_state.ob_step
+    
+    # Check if we're at a step that requires saving and user is not authenticated
+    # If so, show auth gate immediately before rendering any content
+    if step >= 12:  # Steps 12+ are near completion and require auth
+        current_uid = _auth_uid_or_none()
+        if not current_uid:
+            from helpers import render_auth_gate
+            render_auth_gate()
+            st.stop()
+            return
+    
+    st.markdown("### 👋 Boas-vindas ao calorIA")
 
     # estado temporário (defaults do profile se existirem)
     full_name = st.session_state.get("ob_name", profile.get("full_name", ""))
@@ -158,6 +116,56 @@ def render_onboarding(uid: str, profile: dict):
     target_weight_kg = st.session_state.get("ob_target", float(profile.get("target_weight_kg") or max(weight_kg - 5, 50)))
     obstacles = st.session_state.get("ob_obs", profile.get("obstacles") or "")
 
+    # === Inner function to save onboarding and complete ===
+    def _save_and_complete():
+        current_uid = _auth_uid_or_none()
+        if not current_uid:
+            # This should not happen if early check works, but as fallback:
+            from helpers import render_auth_gate
+            render_auth_gate()
+            st.stop()   
+            return
+
+        try:
+            goal_to_save = _normalize_goal(goal)
+            
+            supabase.table("profiles").update(
+                {
+                    "full_name": full_name or None,
+                    "dob": str(dob) if dob else None,
+                    "sex": sex,
+                    "height_cm": float(height_cm) if height_cm else None,
+                    "weight_kg": float(weight_kg) if weight_kg else None,
+                    "goal": goal_to_save,
+                    "target_weight_kg": float(target_weight_kg) if target_weight_kg else None,
+                    "obstacles": (st.session_state.get("ob_obs") or "").strip() or None,
+                    "onboarding_done": True,
+                }
+            ).eq("id", current_uid).execute()
+
+            today_str = str(date.today())
+            exists = supabase.table("weight_logs") \
+                .select("id") \
+                .eq("user_id", current_uid) \
+                .eq("ref_date", today_str) \
+                .limit(1) \
+                .execute()
+            if not (exists.data if hasattr(exists, 'data') else exists):
+                supabase.table("weight_logs").insert({
+                    "user_id": current_uid,
+                    "ref_date": today_str,
+                    "weight_kg": float(weight_kg),
+                }).execute()
+
+            st.success("✅ Onboarding concluído! Bem-vindo ao calorIA!")
+            st.session_state.onboarding_done = True
+            st.session_state.pop("onboarding_started", None)
+            st.session_state.pop("ob_step", None)
+            st.rerun()
+
+        except Exception as e:
+            st.error(f"Erro ao salvar: {e}")
+
     # === STEP 0: pular direto para cadastro se não autenticado ===
     if step == 0 and not _is_authed():
         st.session_state.ob_step = 1
@@ -166,7 +174,27 @@ def render_onboarding(uid: str, profile: dict):
     # === STEP 0 (landing opcional) ===
     if step == 0:
         st.markdown(
-            "<h2 style='text-align:center;'>🍽️ Contar calorias ficou fácil com o <b>calorIA</b></h2>",
+            """
+            <style>
+            .onboarding-hero {
+                text-align: center;
+                padding: 2rem 1rem;
+            }
+            .onboarding-hero h2 {
+                font-size: clamp(1.5rem, 5vw, 2rem);
+                color: #2BAEAE;
+                margin-bottom: 1rem;
+            }
+            @media (max-width: 768px) {
+                .onboarding-hero {
+                    padding: 1rem 0.5rem;
+                }
+            }
+            </style>
+            <div class="onboarding-hero">
+                <h2>🍽️ Contar calorias ficou fácil com o <b>calorIA</b></h2>
+            </div>
+            """,
             unsafe_allow_html=True,
         )
         st.write("")
@@ -177,11 +205,6 @@ def render_onboarding(uid: str, profile: dict):
                 st.session_state.ob_step = 1
                 st.rerun()
 
-        st.write("")
-        st.markdown(
-            "<div style='text-align:center; font-size:14px; color:gray;'>Já tem conta? <a href='#' style='text-decoration:none;'>Faça login</a></div>",
-            unsafe_allow_html=True,
-        )
         return
 
     # === STEP 1 — Cadastro/Login ===
@@ -225,12 +248,6 @@ def render_onboarding(uid: str, profile: dict):
                 except Exception as e:
                     st.error(f"Falha no cadastro: {e}")
 
-        st.write("")
-        st.markdown(
-            "<div style='text-align:center; font-size:14px; color:gray;'>Já tem conta? <a href='#' style='text-decoration:none;' onclick=\"window.location.reload()\">Faça login</a></div>",
-            unsafe_allow_html=True,
-        )
-
     # === STEP 2 — Por que o calorIA é diferente ===
     if step == 2:
         st.subheader("📊 Por que o calorIA é diferente?")
@@ -239,12 +256,36 @@ def render_onboarding(uid: str, profile: dict):
         st.markdown(
             """
         <style>
-        .comp-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        .comp-table th, .comp-table td { border: 1px solid #ddd; padding: 10px; text-align: center; font-size: 14px; }
-        .comp-table th { background-color: #f5f5f5; font-weight: bold; }
+        .comp-table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin-top: 15px; 
+            overflow-x: auto;
+            display: block;
+        }
+        .comp-table th, .comp-table td { 
+            border: 1px solid #ddd; 
+            padding: 10px; 
+            text-align: center; 
+            font-size: clamp(0.75rem, 2vw, 0.9rem);
+            min-width: 100px;
+        }
+        .comp-table th { 
+            background-color: #f5f5f5; 
+            font-weight: bold; 
+            position: sticky;
+            top: 0;
+        }
         .yes { color: #2ecc71; font-weight: bold; }
         .no { color: #e74c3c; font-weight: bold; }
+        @media (max-width: 768px) {
+            .comp-table th, .comp-table td {
+                padding: 8px 5px;
+                font-size: 0.75rem;
+            }
+        }
         </style>
+        <div style="overflow-x: auto;">
         <table class="comp-table">
         <tr><th>Funcionalidade</th><th>Outros Apps</th><th>calorIA</th></tr>
         <tr><td>Contagem de calorias</td><td class="yes">✔️</td><td class="yes">✔️ + IA mais precisa</td></tr>
@@ -253,6 +294,7 @@ def render_onboarding(uid: str, profile: dict):
         <tr><td>Relatórios de evolução (peso, medidas, fotos)</td><td class="no">❌</td><td class="yes">✔️</td></tr>
         <tr><td>Lembretes automáticos</td><td class="no">❌</td><td class="yes">✔️</td></tr>
         </table>
+        </div>
         """,
             unsafe_allow_html=True,
         )
@@ -666,8 +708,7 @@ def render_onboarding(uid: str, profile: dict):
         _sp, _x = st.columns([0.9, 0.1])
         with _x:
             if st.button("✕", key="btn_close_paywall", help="Continuar no plano FREE"):
-                # Agora o X FINALIZA na hora (salva + redireciona)
-                _save_onboarding_and_go_home()
+                _save_and_complete()
 
         st.caption("✨ Último passo antes de liberar seu painel!")
         st.markdown("## 💎 Desbloqueie seu plano completo")
@@ -698,10 +739,8 @@ def render_onboarding(uid: str, profile: dict):
             st.markdown(f"**{preco_mensal}**")
             st.caption("3 dias grátis • Cancele quando quiser")
             if st.button("Começar no PRO Mensal", use_container_width=True, key="btn_pro_mensal"):
-                # aqui normalmente você chamaria o checkout (Stripe/etc.)
-                # por enquanto, apenas marca e finaliza igual ao FREE
                 st.session_state.plano_escolhido = "PRO_M"
-                _save_onboarding_and_go_home()
+                _save_and_complete()
 
         with col_a:
             st.markdown("#### PRO Anual")
@@ -709,7 +748,7 @@ def render_onboarding(uid: str, profile: dict):
             st.caption(f"{economia_txt} • 3 dias grátis")
             if st.button("Começar no PRO Anual", use_container_width=True, key="btn_pro_anual"):
                 st.session_state.plano_escolhido = "PRO_A"
-                _save_onboarding_and_go_home()
+                _save_and_complete()
 
     # === Navegação global (fora dos steps) — DENTRO da função render_onboarding ===
     st.divider()
@@ -766,57 +805,6 @@ def render_onboarding(uid: str, profile: dict):
                 st.rerun()
 
         elif step >= 14:
-            # "Concluir" com guard de sessão válida (RLS)
             if st.button("Concluir ✅", key="btn_concluir"):
-                auid = _auth_uid_or_none()
-                if not auid or str(auid) != str(uid):
-                    st.warning("Sua sessão expirou. Faça login para concluir.")
-                    st.session_state.ob_step = 1
-                    st.session_state.auth_mode = "login"
-                    st.rerun()
-
-                try:
-                    goal_to_save = _normalize_goal(goal)
-
-                    # update do perfil (RLS: id = auth.uid())
-                    supabase.table("profiles").update(
-                        {
-                            "full_name": full_name or None,
-                            "dob": str(dob) if dob else None,
-                            "sex": sex,
-                            "height_cm": float(height_cm) if height_cm else None,
-                            "weight_kg": float(weight_kg) if weight_kg else None,
-                            "goal": goal_to_save,
-                            "target_weight_kg": float(target_weight_kg) if target_weight_kg else None,
-                            "obstacles": (st.session_state.get("ob_obs") or "").strip() or None,
-                            "onboarding_done": True,
-                        }
-                    ).eq("id", uid).execute()
-
-                    # weight_logs: insere HOJE só se ainda não existir
-                    today_str = str(date.today())
-                    exists = supabase.table("weight_logs") \
-                        .select("id") \
-                        .eq("user_id", uid) \
-                        .eq("ref_date", today_str) \
-                        .limit(1) \
-                        .execute()
-                    if not getattr(exists, "data", exists):
-                        supabase.table("weight_logs").insert({
-                            "user_id": uid,           # RLS: with check (user_id = auth.uid())
-                            "ref_date": today_str,
-                            "weight_kg": float(weight_kg),
-                        }).execute()
-
-                    # terminou → ir para o painel
-                    st.success("Onboarding concluído! Redirecionando…")
-                    st.session_state.onboarding_done = True
-                    # se usa multipage:
-                    # st.switch_page("pages/01_Diario_Alimentar.py")
-                    # ou roteador simples:
-                    st.session_state.route = "home"
-                    st.rerun()
-
-                except Exception as e:
-                    st.error(f"Erro ao salvar: {e}")
+                _save_and_complete()
 

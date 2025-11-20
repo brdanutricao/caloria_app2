@@ -16,7 +16,12 @@ st.set_page_config(
     page_title="calorIA - Nutrição Inteligente",
     page_icon="🍽️",
     layout="centered",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed",
+    menu_items={
+        'Get Help': None,
+        'Report a bug': None,
+        'About': "# calorIA\nNutrição inteligente com IA"
+    }
 )
 
 from helpers import (
@@ -36,7 +41,8 @@ from helpers import (
     splash_once,
     render_onboarding,
     apply_theme, get_meal_plan_for_target,
-    is_user_coaching
+    is_user_coaching,
+    render_auth_gate
 )
 
 apply_theme()
@@ -1058,75 +1064,6 @@ def render_app_calorias():
 # (não precisa definir render_receitas/render_perfil se usa multipage com switch_page)
 
 # --- Roteador (ÚNICO) ---
-def render_auth_gate():
-    st.markdown(
-        """
-        <div style='text-align: center; padding: 1rem 0;'>
-            <h1 style='color: #2BAEAE;'>🔐 Acesse sua conta</h1>
-            <p style='color: #6C757D;'>Entre com suas credenciais para continuar</p>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-    col_spacer1, col_form, col_spacer2 = st.columns([1, 2, 1])
-    with col_form:
-        if st.button("← Voltar", type="secondary", use_container_width=True):
-            st.session_state["show_login"] = False
-            st.rerun()
-
-        st.write("")
-        
-        default_email = st.session_state.get("saved_email", "")
-        email = st.text_input("E-mail", value=default_email, key="login_email", placeholder="seu@email.com")
-        password = st.text_input("Senha", type="password", key="login_password", placeholder="Sua senha")
-        remember = st.checkbox("Lembrar meu login", value=True, key="login_remember")
-
-        st.write("")
-
-        if st.button("🚀 Entrar", key="btn_do_login", use_container_width=True, type="primary"):
-            if not email or not password:
-                st.error("Por favor, preencha e-mail e senha.")
-            else:
-                try:
-                    from helpers import supabase
-                    res = supabase.auth.sign_in_with_password({"email": email, "password": password})
-                    user = getattr(res, "user", None) or (res.get("user") if isinstance(res, dict) else None)
-
-                    if user:
-                        st.session_state["sb_session"] = res
-                        st.session_state["user_id"] = user.id
-                        st.session_state["user_email"] = user.email
-
-                        try:
-                            from helpers import db_upsert_profile
-                            db_upsert_profile(user.id, user.email)
-                        except Exception:
-                            pass
-
-                        if remember:
-                            st.session_state["saved_email"] = email
-
-                        st.session_state["show_login"] = False
-                        st.success("✅ Login realizado com sucesso!")
-                        st.rerun()
-                    else:
-                        st.error("Falha no login. Verifique suas credenciais.")
-                except Exception as e:
-                    st.error(f"Erro ao fazer login: {e}")
-        
-        st.markdown(
-            """
-            <div style='text-align: center; margin-top: 1.5rem; padding: 1rem; background-color: #F8F9FA; border-radius: 8px;'>
-                <p style='color: #6C757D; font-size: 0.9rem; margin: 0;'>
-                    Não tem uma conta? <a href='#' style='color: #FF7A3D; text-decoration: none; font-weight: 600;'>Criar conta grátis</a>
-                </p>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-
 def render_logout():
     if st.button("Sair", type="secondary", use_container_width=True):
         try:
@@ -1159,9 +1096,9 @@ def render_router():
         # Tela inicial com design melhorado
         st.markdown(
             """
-            <div style='text-align: center; padding: 2rem 0;'>
-                <h1 style='color: #2BAEAE; font-size: 2.5rem; margin-bottom: 0.5rem;'>🍽️ Bem-vindo ao calorIA</h1>
-                <p style='font-size: 1.2rem; color: #6C757D; margin-bottom: 2rem;'>
+            <div style='text-align: center; padding: 2rem 1rem;'>
+                <h1 style='color: #2BAEAE; font-size: clamp(1.8rem, 5vw, 2.5rem); margin-bottom: 0.5rem;'>🍽️ Bem-vindo ao calorIA</h1>
+                <p style='font-size: clamp(1rem, 3vw, 1.2rem); color: #6C757D; margin-bottom: 2rem;'>
                     Contar calorias ficou fácil com o poder da IA
                 </p>
             </div>
@@ -1184,23 +1121,67 @@ def render_router():
         
         st.markdown(
             """
-            <div style='text-align: center; margin-top: 3rem; padding: 2rem; background-color: #F8F9FA; border-radius: 10px;'>
-                <h3 style='color: #2BAEAE;'>✨ Por que escolher o calorIA?</h3>
-                <div style='display: flex; flex-wrap: wrap; justify-content: center; gap: 2rem; margin-top: 1.5rem;'>
-                    <div style='flex: 1; min-width: 200px; max-width: 300px;'>
-                        <div style='font-size: 2rem; margin-bottom: 0.5rem;'>🤖</div>
-                        <strong>IA Inteligente</strong>
-                        <p style='color: #6C757D; font-size: 0.9rem;'>Reconhecimento automático de alimentos por foto</p>
+            <style>
+            .features-container {
+                text-align: center;
+                margin-top: 3rem;
+                padding: 2rem 1rem;
+                background-color: #F8F9FA;
+                border-radius: 10px;
+            }
+            .features-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+                gap: 2rem;
+                margin-top: 1.5rem;
+            }
+            .feature-card {
+                padding: 1rem;
+                transition: transform 0.3s ease;
+            }
+            .feature-card:hover {
+                transform: translateY(-5px);
+            }
+            .feature-icon {
+                font-size: 2.5rem;
+                margin-bottom: 0.5rem;
+            }
+            .feature-title {
+                font-weight: 600;
+                color: #2BAEAE;
+                margin-bottom: 0.5rem;
+            }
+            .feature-desc {
+                color: #6C757D;
+                font-size: 0.9rem;
+            }
+            @media (max-width: 768px) {
+                .features-grid {
+                    grid-template-columns: 1fr;
+                    gap: 1.5rem;
+                }
+                .feature-icon {
+                    font-size: 2rem;
+                }
+            }
+            </style>
+            <div class="features-container">
+                <h3 style='color: #2BAEAE; font-size: clamp(1.3rem, 4vw, 1.5rem);'>✨ Por que escolher o calorIA?</h3>
+                <div class="features-grid">
+                    <div class="feature-card">
+                        <div class="feature-icon">🤖</div>
+                        <div class="feature-title">IA Inteligente</div>
+                        <p class="feature-desc">Reconhecimento automático de alimentos por foto</p>
                     </div>
-                    <div style='flex: 1; min-width: 200px; max-width: 300px;'>
-                        <div style='font-size: 2rem; margin-bottom: 0.5rem;'>📊</div>
-                        <strong>Acompanhamento Completo</strong>
-                        <p style='color: #6C757D; font-size: 0.9rem;'>Gráficos de evolução e metas personalizadas</p>
+                    <div class="feature-card">
+                        <div class="feature-icon">📊</div>
+                        <div class="feature-title">Acompanhamento Completo</div>
+                        <p class="feature-desc">Gráficos de evolução e metas personalizadas</p>
                     </div>
-                    <div style='flex: 1; min-width: 200px; max-width: 300px;'>
-                        <div style='font-size: 2rem; margin-bottom: 0.5rem;'>🍱</div>
-                        <strong>Receitas Exclusivas</strong>
-                        <p style='color: #6C757D; font-size: 0.9rem;'>Cardápios balanceados e deliciosos</p>
+                    <div class="feature-card">
+                        <div class="feature-icon">🍱</div>
+                        <div class="feature-title">Receitas Exclusivas</div>
+                        <p class="feature-desc">Cardápios balanceados e deliciosos</p>
                     </div>
                 </div>
             </div>

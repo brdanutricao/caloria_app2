@@ -13,7 +13,7 @@ st.set_page_config(
     page_title="Perfil / Conta",
     page_icon="👤",
     layout="centered",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
 from helpers import (

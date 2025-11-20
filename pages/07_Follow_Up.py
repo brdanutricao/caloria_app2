@@ -8,7 +8,7 @@ st.set_page_config(
     page_title="Check-in Semanal",
     page_icon="📊",
     layout="centered",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
 from helpers import (

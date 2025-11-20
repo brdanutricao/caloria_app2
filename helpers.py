@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Optional, Dict, Any, List
 
 import streamlit as st
+import streamlit.components.v1 as components
 from supabase import create_client, Client
 from components.onboarding import render_onboarding
 
@@ -39,13 +40,11 @@ supabase = get_supabase_client()
 import time
 
 def splash_once():
-    """
-    Exibe a tela de splash com logo e título customizado.
-    Mostra apenas 1x por sessão com animação.
-    """
     if st.session_state.get("_splash_done"):
         return
 
+    logo_path = LOGO_PATH if LOGO_PATH.exists() else None
+    
     ph = st.empty()
     with ph.container():
         st.markdown(
@@ -56,50 +55,80 @@ def splash_once():
               to { opacity: 1; transform: translateY(0); }
             }
             
+            @keyframes slideDown {
+              from { opacity: 0; transform: translateY(-30px); }
+              to { opacity: 1; transform: translateY(0); }
+            }
+            
             @keyframes pulse {
               0%, 100% { transform: scale(1); }
-              50% { transform: scale(1.05); }
+              50% { transform: scale(1.08); }
+            }
+            
+            @keyframes shimmer {
+              0% { opacity: 0.6; }
+              50% { opacity: 1; }
+              100% { opacity: 0.6; }
             }
             
             .caloria-splash {
               position: fixed; 
               inset: 0; 
               z-index: 9999;
-              background: linear-gradient(135deg, #FFFFFF 0%, #F8F9FA 100%);
+              background: linear-gradient(135deg, #FFFFFF 0%, #E8F8F8 50%, #F8F9FA 100%);
               display: flex; 
               flex-direction: column;
               align-items: center; 
               justify-content: center;
-              animation: fadeIn 0.5s ease-out;
+              animation: fadeIn 0.6s ease-out;
             }
             
             .caloria-splash-logo {
-              animation: pulse 2s ease-in-out infinite;
-              margin-bottom: 1.5rem;
+              animation: slideDown 0.8s ease-out, pulse 2s ease-in-out 0.8s infinite;
+              margin-bottom: 2rem;
+              filter: drop-shadow(0 8px 16px rgba(43, 174, 174, 0.2));
+            }
+            
+            .caloria-splash-logo img {
+              max-width: 280px;
+              height: auto;
             }
             
             .caloria-splash-title {
-              font-size: 2.5rem;
-              font-weight: 700;
-              color: #2BAEAE;
-              margin-bottom: 0.5rem;
-              animation: fadeIn 0.8s ease-out 0.2s both;
+              font-size: 3rem;
+              font-weight: 800;
+              background: linear-gradient(90deg, #2BAEAE 0%, #FF7A3D 100%);
+              -webkit-background-clip: text;
+              -webkit-text-fill-color: transparent;
+              background-clip: text;
+              margin-bottom: 0.8rem;
+              animation: fadeIn 1s ease-out 0.3s both;
               text-align: center;
+              letter-spacing: -0.5px;
             }
             
             .caloria-splash-sub {
-              font-size: 1.1rem;
-              color: #FF7A3D;
+              font-size: 1.3rem;
+              color: #6C757D;
               font-weight: 500;
-              animation: fadeIn 1s ease-out 0.4s both;
+              animation: fadeIn 1.2s ease-out 0.5s both;
+              text-align: center;
+              margin-bottom: 0.5rem;
+            }
+            
+            .caloria-splash-tagline {
+              font-size: 1rem;
+              color: #FF7A3D;
+              font-weight: 600;
+              animation: fadeIn 1.4s ease-out 0.7s both;
               text-align: center;
             }
             
             .caloria-splash-loader {
-              margin-top: 2rem;
+              margin-top: 2.5rem;
               width: 50px;
               height: 50px;
-              border: 4px solid #F8F9FA;
+              border: 4px solid rgba(43, 174, 174, 0.2);
               border-top: 4px solid #2BAEAE;
               border-radius: 50%;
               animation: spin 1s linear infinite;
@@ -109,30 +138,106 @@ def splash_once():
               0% { transform: rotate(0deg); }
               100% { transform: rotate(360deg); }
             }
+            
+            @media (max-width: 768px) {
+              .caloria-splash-logo img {
+                max-width: 200px;
+              }
+              .caloria-splash-title {
+                font-size: 2.2rem;
+              }
+              .caloria-splash-sub {
+                font-size: 1.1rem;
+              }
+              .caloria-splash-tagline {
+                font-size: 0.9rem;
+              }
+            }
             </style>
-            <div class="caloria-splash">
-              <div class="caloria-splash-logo">
-                <svg width="120" height="120" viewBox="0 0 120 120" fill="none">
-                  <circle cx="60" cy="60" r="55" fill="#2BAEAE" opacity="0.1"/>
-                  <circle cx="60" cy="60" r="45" fill="#2BAEAE" opacity="0.2"/>
-                  <text x="60" y="75" font-size="60" text-anchor="middle" fill="#2BAEAE">🍽️</text>
-                </svg>
-              </div>
-              <div class="caloria-splash-title">calorIA</div>
-              <div class="caloria-splash-sub">Nutrição inteligente com IA</div>
-              <div class="caloria-splash-loader"></div>
-            </div>
             """,
             unsafe_allow_html=True
         )
+        
+        if logo_path:
+            logo_base64 = None
+            try:
+                import base64
+                with open(logo_path, "rb") as f:
+                    logo_base64 = base64.b64encode(f.read()).decode()
+            except Exception:
+                pass
+            
+            if logo_base64:
+                st.markdown(
+                    f"""
+                    <div class="caloria-splash">
+                      <div class="caloria-splash-logo">
+                        <img src="data:image/png;base64,{logo_base64}" alt="CalorIA Logo"/>
+                      </div>
+                      <div class="caloria-splash-sub">Bem-vindo ao</div>
+                      <div class="caloria-splash-title">calorIA</div>
+                      <div class="caloria-splash-tagline">✨ Nutrição inteligente com IA</div>
+                      <div class="caloria-splash-loader"></div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+            else:
+                st.markdown(
+                    """
+                    <div class="caloria-splash">
+                      <div class="caloria-splash-logo">
+                        <svg width="140" height="140" viewBox="0 0 140 140" fill="none">
+                          <circle cx="70" cy="70" r="65" fill="#2BAEAE" opacity="0.1"/>
+                          <circle cx="70" cy="70" r="50" fill="#2BAEAE" opacity="0.2"/>
+                          <text x="70" y="85" font-size="70" text-anchor="middle">🍽️</text>
+                        </svg>
+                      </div>
+                      <div class="caloria-splash-sub">Bem-vindo ao</div>
+                      <div class="caloria-splash-title">calorIA</div>
+                      <div class="caloria-splash-tagline">✨ Nutrição inteligente com IA</div>
+                      <div class="caloria-splash-loader"></div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+        else:
+            st.markdown(
+                """
+                <div class="caloria-splash">
+                  <div class="caloria-splash-logo">
+                    <svg width="140" height="140" viewBox="0 0 140 140" fill="none">
+                      <circle cx="70" cy="70" r="65" fill="#2BAEAE" opacity="0.1"/>
+                      <circle cx="70" cy="70" r="50" fill="#2BAEAE" opacity="0.2"/>
+                      <text x="70" y="85" font-size="70" text-anchor="middle">🍽️</text>
+                    </svg>
+                  </div>
+                  <div class="caloria-splash-sub">Bem-vindo ao</div>
+                  <div class="caloria-splash-title">calorIA</div>
+                  <div class="caloria-splash-tagline">✨ Nutrição inteligente com IA</div>
+                  <div class="caloria-splash-loader"></div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
 
-    time.sleep(2.0)
+    time.sleep(2.5)
     ph.empty()
     st.session_state["_splash_done"] = True
 
 def apply_theme():
     st.markdown("""
     <style>
+      /* ===== BASE RESPONSIVE ===== */
+      * {
+        box-sizing: border-box;
+      }
+      
+      html, body {
+        overflow-x: hidden;
+        width: 100%;
+      }
+      
       /* ===== SIDEBAR ===== */
       [data-testid="stSidebar"] {
         background-color: #2BAEAE !important;
@@ -249,15 +354,116 @@ def apply_theme():
         }
         
         [data-testid="stSidebar"] {
-          width: 100% !important;
+          width: 280px !important;
+          min-width: 280px !important;
+          max-width: 85vw !important;
         }
         
-        div[style*="flex"] {
-          flex-direction: column !important;
+        [data-testid="stSidebar"][aria-expanded="true"] {
+          position: fixed !important;
+          z-index: 999 !important;
+          height: 100vh !important;
+          top: 0 !important;
+          left: 0 !important;
+          box-shadow: 2px 0 10px rgba(0,0,0,0.2) !important;
+          overflow-y: auto !important;
         }
         
-        div[style*="gap"] {
-          gap: 1rem !important;
+        [data-testid="stSidebar"] * {
+          font-size: 0.95rem !important;
+        }
+        
+        [data-testid="stSidebar"] .stButton > button {
+          font-size: 0.9rem !important;
+          padding: 0.5rem 0.75rem !important;
+        }
+        
+        [data-testid="stSidebar"][aria-expanded="false"] {
+          transform: translateX(-100%) !important;
+        }
+        
+        [data-testid="stSidebar"] ~ [data-testid="stAppViewContainer"] {
+          margin-left: 0 !important;
+        }
+        
+        button[data-testid="baseButton-header"][aria-label*="sidebar"],
+        button[data-testid="baseButton-header"][aria-label*="menu"] {
+          position: fixed !important;
+          top: 0.75rem !important;
+          left: 0.75rem !important;
+          z-index: 1000 !important;
+          background-color: #2BAEAE !important;
+          color: white !important;
+          border-radius: 8px !important;
+          width: 42px !important;
+          height: 42px !important;
+          min-width: 42px !important;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.25) !important;
+          border: none !important;
+        }
+        
+        button[data-testid="baseButton-header"][aria-label*="sidebar"]:hover,
+        button[data-testid="baseButton-header"][aria-label*="menu"]:hover {
+          background-color: #229999 !important;
+          transform: scale(1.05) !important;
+        }
+        
+        [data-testid="stSidebar"][aria-expanded="true"] ~ * {
+          position: relative;
+        }
+        
+        [data-testid="column"] {
+          flex: 1 1 100% !important;
+          max-width: 100% !important;
+        }
+        
+        [data-testid="stMetric"] {
+          min-width: auto !important;
+        }
+        
+        .stTabs [data-baseweb="tab-list"] {
+          flex-wrap: wrap !important;
+          gap: 0.5rem !important;
+        }
+        
+        .stTabs [data-baseweb="tab"] {
+          font-size: 0.85rem !important;
+          padding: 0.4rem 0.8rem !important;
+        }
+        
+        [data-testid="stForm"] {
+          padding: 1rem 0.5rem !important;
+        }
+        
+        [data-testid="stDataFrame"] {
+          overflow-x: auto !important;
+          font-size: 0.85rem !important;
+        }
+        
+        [data-testid="stImage"] {
+          max-width: 100% !important;
+        }
+      }
+      
+      @media (max-width: 480px) {
+        h1 { font-size: 1.5rem !important; }
+        h2 { font-size: 1.3rem !important; }
+        h3 { font-size: 1.1rem !important; }
+        
+        .stButton > button {
+          padding: 0.5rem 0.8rem !important;
+          font-size: 0.85rem !important;
+        }
+        
+        [data-testid="stNumberInput"] label,
+        [data-testid="stTextInput"] label,
+        [data-testid="stSelectbox"] label {
+          font-size: 0.9rem !important;
+        }
+        
+        [data-testid="stNumberInput"] input,
+        [data-testid="stTextInput"] input {
+          font-size: 0.9rem !important;
         }
       }
 
@@ -287,6 +493,124 @@ def apply_theme():
       }
     </style>
     """, unsafe_allow_html=True)
+    
+    st.markdown("""
+    <style>
+      .sidebar-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 998;
+        transition: opacity 0.3s ease;
+      }
+      
+      .sidebar-overlay.active {
+        display: block;
+      }
+      
+      @media (max-width: 768px) {
+        [data-testid="stSidebar"][aria-expanded="true"] {
+          box-shadow: 2px 0 15px rgba(0,0,0,0.3) !important;
+        }
+      }
+    </style>
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+    """, unsafe_allow_html=True)
+    
+    components.html("""
+    <script>
+    (function() {
+      function isMobile() {
+        return window.innerWidth <= 768;
+      }
+      
+      function collapseSidebar() {
+        var sidebar = document.querySelector('[data-testid="stSidebar"]');
+        var sidebarButton = document.querySelector('button[data-testid="baseButton-header"][aria-label*="sidebar"], button[data-testid="baseButton-header"][aria-label*="menu"]');
+        
+        if (sidebar && sidebar.getAttribute('aria-expanded') === 'true') {
+          if (sidebarButton) {
+            sidebarButton.click();
+          }
+        }
+      }
+      
+      function setupSidebarOverlay() {
+        var overlay = document.getElementById('sidebarOverlay');
+        var sidebar = document.querySelector('[data-testid="stSidebar"]');
+        
+        if (overlay && sidebar) {
+          overlay.addEventListener('click', function() {
+            if (isMobile() && sidebar.getAttribute('aria-expanded') === 'true') {
+              collapseSidebar();
+            }
+          });
+          
+          var observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+              if (mutation.type === 'attributes' && mutation.attributeName === 'aria-expanded') {
+                if (isMobile()) {
+                  if (sidebar.getAttribute('aria-expanded') === 'true') {
+                    overlay.classList.add('active');
+                  } else {
+                    overlay.classList.remove('active');
+                  }
+                }
+              }
+            });
+          });
+          
+          observer.observe(sidebar, { attributes: true, attributeFilter: ['aria-expanded'] });
+          
+          var checkSidebarState = function() {
+            if (isMobile()) {
+              if (sidebar.getAttribute('aria-expanded') === 'true') {
+                overlay.classList.add('active');
+              } else {
+                overlay.classList.remove('active');
+              }
+            } else {
+              overlay.classList.remove('active');
+            }
+          };
+          
+          checkSidebarState();
+          setInterval(checkSidebarState, 100);
+        }
+      }
+      
+      function initMobileSidebar() {
+        if (isMobile()) {
+          collapseSidebar();
+          setupSidebarOverlay();
+        }
+      }
+      
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() {
+          setTimeout(initMobileSidebar, 200);
+        });
+      } else {
+        setTimeout(initMobileSidebar, 200);
+      }
+      
+      window.addEventListener('resize', function() {
+        if (isMobile()) {
+          setupSidebarOverlay();
+        } else {
+          var overlay = document.getElementById('sidebarOverlay');
+          if (overlay) {
+            overlay.classList.remove('active');
+          }
+        }
+      });
+    })();
+    </script>
+    """, height=0, width=0)
 
 # ======================================================
 # STORAGE HELPERS
@@ -830,3 +1154,74 @@ def set_nav(dest: str):
     """Atalho para trocar a aba/nav atual e rerun."""
     st.session_state["nav"] = dest
     st.rerun()
+
+
+# ======================================================
+# AUTHENTICATION UI
+# ======================================================
+def render_auth_gate():
+    """Renderiza a tela de login/autenticação."""
+    st.markdown(
+        """
+        <div style='text-align: center; padding: 1rem 0;'>
+            <h1 style='color: #2BAEAE;'>🔐 Acesse sua conta</h1>
+            <p style='color: #6C757D;'>Entre com suas credenciais para continuar</p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    col_spacer1, col_form, col_spacer2 = st.columns([1, 2, 1])
+    with col_form:
+        if st.button("← Voltar", type="secondary", use_container_width=True):
+            st.session_state["show_login"] = False
+            st.rerun()
+
+        st.write("")
+        
+        default_email = st.session_state.get("saved_email", "")
+        email = st.text_input("E-mail", value=default_email, key="login_email", placeholder="seu@email.com")
+        password = st.text_input("Senha", type="password", key="login_password", placeholder="Sua senha")
+        remember = st.checkbox("Lembrar meu login", value=True, key="login_remember")
+
+        st.write("")
+
+        if st.button("🚀 Entrar", key="btn_do_login", use_container_width=True, type="primary"):
+            if not email or not password:
+                st.error("Por favor, preencha e-mail e senha.")
+            else:
+                try:
+                    res = supabase.auth.sign_in_with_password({"email": email, "password": password})
+                    user = getattr(res, "user", None) or (res.get("user") if isinstance(res, dict) else None)
+
+                    if user:
+                        st.session_state["sb_session"] = res
+                        st.session_state["user_id"] = user.id
+                        st.session_state["user_email"] = user.email
+
+                        try:
+                            db_upsert_profile(user.id, user.email)
+                        except Exception:
+                            pass
+
+                        if remember:
+                            st.session_state["saved_email"] = email
+
+                        st.session_state["show_login"] = False
+                        st.success("✅ Login realizado com sucesso!")
+                        st.rerun()
+                    else:
+                        st.error("Falha no login. Verifique suas credenciais.")
+                except Exception as e:
+                    st.error(f"Erro ao fazer login: {e}")
+        
+        st.markdown(
+            """
+            <div style='text-align: center; margin-top: 1.5rem; padding: 1rem; background-color: #F8F9FA; border-radius: 8px;'>
+                <p style='color: #6C757D; font-size: 0.9rem; margin: 0;'>
+                    Não tem uma conta? <a href='#' style='color: #FF7A3D; text-decoration: none; font-weight: 600;'>Criar conta grátis</a>
+                </p>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )

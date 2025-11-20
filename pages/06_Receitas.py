@@ -12,7 +12,7 @@ st.set_page_config(
     page_title="Receitas",
     page_icon="🍽️",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
 from helpers import (
